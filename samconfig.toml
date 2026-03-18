@@ -1,0 +1,15 @@
+# SAM CLI configuration — run `sam deploy` without extra flags.
+# First deploy: run `sam deploy --guided` to fill in parameter values.
+
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "agenda-rouen"
+region = "eu-west-3"
+resolve_s3 = true
+s3_prefix = "agenda-rouen"
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+
+[default.build.parameters]
+use_container = false

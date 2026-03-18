@@ -1,0 +1,165 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Agenda Rouen — Scrape, classify, and publish Rouen events as static JSON.
+
+Parameters:
+  EventsBucketName:
+    Type: String
+    Default: agenda-rouen-events
+    Description: Name of the S3 bucket for published JSON files
+
+  ScheduleExpression:
+    Type: String
+    Default: "cron(0 6 * * ? *)"
+    Description: EventBridge schedule (default daily at 06:00 UTC)
+
+Globals:
+  Function:
+    Runtime: python3.13
+    Architectures:
+      - arm64
+    Timeout: 300
+    MemorySize: 512
+
+Resources:
+  # ─── Lambda Function ────────────────────────────────────────────────
+  ScraperFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: agenda-rouen-scraper
+      Handler: agenda_rouen.handler.lambda_handler
+      Description: Scrape Rouen events, classify via Gemini, publish JSON to S3
+      CodeUri: src/
+      Environment:
+        Variables:
+          EVENTS_BUCKET: !Ref EventsBucketName
+          # GEMINI_API_KEY and GOOGLE_CALENDAR_API_KEY are set manually
+          # in the Lambda console to avoid storing secrets in CloudFormation.
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref EventsBucketName
+      Events:
+        DailySchedule:
+          Type: Schedule
+          Properties:
+            Schedule: !Ref ScheduleExpression
+            Description: Daily scrape of Rouen events
+            Enabled: true
+
+  # ─── S3 Bucket ──────────────────────────────────────────────────────
+  EventsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref EventsBucketName
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ["*"]
+            AllowedMethods: [GET]
+            AllowedOrigins: ["*"]
+            MaxAge: 3600
+
+  EventsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref EventsBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowCloudFrontRead
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub "${EventsBucket.Arn}/*"
+            Condition:
+              StringEquals:
+                "AWS:SourceArn": !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${CDNDistribution}"
+
+  # ─── CloudFront ─────────────────────────────────────────────────────
+  CDNOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: agenda-rouen-oac
+        Description: OAC for Agenda Rouen S3 bucket
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  CDNDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: Agenda Rouen — Static JSON API
+        Enabled: true
+        DefaultRootObject: api/v1/events.json
+        PriceClass: PriceClass_100
+        HttpVersion: http2and3
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt EventsBucket.DomainName
+            OriginAccessControlId: !Ref CDNOriginAccessControl
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD, OPTIONS]
+          CachedMethods: [GET, HEAD]
+          Compress: true
+          CachePolicyId: !Ref CDNCachePolicy
+          ResponseHeadersPolicyId: !Ref CDNCorsPolicy
+
+  CDNCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Name: agenda-rouen-cache-1h
+        Comment: Cache JSON for 1 hour
+        DefaultTTL: 3600
+        MaxTTL: 86400
+        MinTTL: 0
+        ParametersInCacheKeyAndForwardedToOrigin:
+          CookiesConfig:
+            CookieBehavior: none
+          HeadersConfig:
+            HeaderBehavior: none
+          QueryStringsConfig:
+            QueryStringBehavior: none
+          EnableAcceptEncodingGzip: true
+          EnableAcceptEncodingBrotli: true
+
+  CDNCorsPolicy:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties:
+      ResponseHeadersPolicyConfig:
+        Name: agenda-rouen-cors
+        Comment: CORS headers for frontend
+        CorsConfig:
+          AccessControlAllowCredentials: false
+          AccessControlAllowHeaders:
+            Items: ["*"]
+          AccessControlAllowMethods:
+            Items: [GET, HEAD]
+          AccessControlAllowOrigins:
+            Items: ["*"]
+          AccessControlMaxAgeSec: 3600
+          OriginOverride: true
+
+Outputs:
+  ScraperFunctionArn:
+    Description: Lambda function ARN
+    Value: !GetAtt ScraperFunction.Arn
+
+  EventsBucketName:
+    Description: S3 bucket for events JSON
+    Value: !Ref EventsBucket
+
+  CloudFrontDomain:
+    Description: CloudFront domain — use this as API base URL in the frontend
+    Value: !Sub "https://${CDNDistribution.DomainName}"
+
+  CloudFrontDistributionId:
+    Description: CloudFront distribution ID (for cache invalidation)
+    Value: !Ref CDNDistribution
