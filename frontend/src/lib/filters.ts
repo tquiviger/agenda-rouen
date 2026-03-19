@@ -59,3 +59,42 @@ export function formatDateRange(start: string, end: string | null): string {
   }
   return `${formatDate(start)} → ${formatDate(end)}`;
 }
+
+/** Returns a proximity badge label, or null if not soon. */
+export function getTimeBadge(dateStart: string): string | null {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const start = new Date(dateStart + "T00:00:00");
+  const diff = Math.floor((start.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diff < 0) return null;
+  if (diff === 0) return "Aujourd'hui";
+  if (diff === 1) return "Demain";
+
+  // Check if it's this weekend
+  const dayOfWeek = today.getDay();
+  const daysUntilSat = (6 - dayOfWeek + 7) % 7;
+  const daysUntilSun = daysUntilSat + 1;
+  if (diff === daysUntilSat || diff === daysUntilSun) return "Ce week-end";
+
+  if (diff <= 3) return "Bientôt";
+  return null;
+}
+
+/** Count events per category. */
+export function countByCategory(events: Event[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const e of events) {
+    counts[e.category] = (counts[e.category] || 0) + 1;
+  }
+  return counts;
+}
+
+/** Filter events by search query (title or location). */
+export function searchEvents(events: Event[], query: string): Event[] {
+  if (!query.trim()) return events;
+  const q = query.toLowerCase().trim();
+  return events.filter(
+    (e) => e.title.toLowerCase().includes(q) || e.location.toLowerCase().includes(q),
+  );
+}

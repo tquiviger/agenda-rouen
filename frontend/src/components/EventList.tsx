@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import CategoryFilter from "@/components/CategoryFilter";
 import DateFilter from "@/components/DateFilter";
 import EventCard from "@/components/EventCard";
 import EventModal from "@/components/EventModal";
 import Header from "@/components/Header";
-import { filterEvents } from "@/lib/filters";
+import SearchBar from "@/components/SearchBar";
+import { filterEvents, searchEvents, countByCategory } from "@/lib/filters";
 import type { Category, DateFilter as DateFilterType, Event } from "@/lib/types";
 
 interface EventListProps {
@@ -17,32 +18,53 @@ export default function EventList({ events }: EventListProps) {
   const [dateFilter, setDateFilter] = useState<DateFilterType>("all");
   const [categoryFilter, setCategoryFilter] = useState<Category | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [query, setQuery] = useState("");
 
-  const filtered = filterEvents(events, dateFilter, categoryFilter);
+  const filtered = useMemo(() => {
+    const dated = filterEvents(events, dateFilter, categoryFilter);
+    return searchEvents(dated, query);
+  }, [events, dateFilter, categoryFilter, query]);
+
+  const categoryCounts = useMemo(() => countByCategory(
+    filterEvents(events, dateFilter, null)
+  ), [events, dateFilter]);
 
   return (
     <>
       <main className="mx-auto max-w-6xl px-4 sm:px-6">
         {/* Header */}
-        <div className="pt-10 pb-8">
+        <div className="pt-8 pb-6">
           <Header eventCount={filtered.length} />
         </div>
 
         {/* Filters */}
-        <div className="sticky top-0 z-30 -mx-4 px-4 sm:-mx-6 sm:px-6 py-4 bg-stone-50/80 backdrop-blur-lg border-b border-gray-100">
+        <div
+          className="sticky top-0 z-30 -mx-4 px-4 sm:-mx-6 sm:px-6 py-3 backdrop-blur-xl"
+          style={{
+            background: "var(--surface-glass)",
+            borderBottom: "1px solid var(--border-subtle)",
+          }}
+        >
           <div className="space-y-3">
+            <SearchBar value={query} onChange={setQuery} />
             <DateFilter selected={dateFilter} onSelect={setDateFilter} />
-            <CategoryFilter selected={categoryFilter} onSelect={setCategoryFilter} />
+            <CategoryFilter
+              selected={categoryFilter}
+              onSelect={setCategoryFilter}
+              counts={categoryCounts}
+            />
           </div>
         </div>
 
-        {/* Event grid */}
+        {/* Event grid — bento layout */}
         {filtered.length > 0 ? (
-          <div className="grid gap-5 pt-6 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((event) => (
+          <div className="grid gap-4 pt-6 pb-12 sm:grid-cols-2 lg:grid-cols-3">
+            {filtered.map((event, i) => (
               <EventCard
                 key={event.id}
                 event={event}
+                featured={i % 7 === 0 && i < 21}
+                index={i}
                 onClick={() => setSelectedEvent(event)}
               />
             ))}
@@ -50,10 +72,10 @@ export default function EventList({ events }: EventListProps) {
         ) : (
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <span className="text-6xl mb-4">🔍</span>
-            <p className="text-xl font-semibold text-gray-500">
+            <p className="text-xl font-semibold" style={{ color: "var(--muted-strong)" }}>
               Aucun événement trouvé
             </p>
-            <p className="text-gray-400 mt-1">
+            <p className="mt-1" style={{ color: "var(--muted)" }}>
               Essayez de changer les filtres
             </p>
           </div>
