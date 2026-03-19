@@ -158,11 +158,20 @@ async def classify(
                         i // _TITLE_BATCH_SIZE + 1,
                     )
 
-    # Step 3: build Event objects
+    # Step 3: build Event objects, dedup by (normalized title + date)
     now = datetime.now(UTC)
+    seen: set[tuple[str, str]] = set()
     events: list[Event] = []
 
-    for raw in raw_events:
+    # Sort by longest description first so dedup keeps the richest entry
+    sorted_raw = sorted(raw_events, key=lambda e: len(e.description), reverse=True)
+
+    for raw in sorted_raw:
+        dedup_key = (raw.title.lower().strip(), str(raw.date_start))
+        if dedup_key in seen:
+            continue
+        seen.add(dedup_key)
+
         # Resolve category
         if raw.raw_category:
             cat_value = cat_mapping.get(raw.raw_category, Category.OTHER.value)
@@ -194,7 +203,8 @@ async def classify(
         ))
 
     logger.info(
-        "Classified %d events (%d via category, %d via title)",
+        "Classified %d raw → %d unique events (%d via category, %d via title)",
+        len(raw_events),
         len(events),
         len(raw_events) - len(no_cat_events),
         len(no_cat_events),
