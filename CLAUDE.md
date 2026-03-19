@@ -68,7 +68,7 @@ Next.js 16 + Tailwind CSS PWA. Consumes static JSON from S3/CloudFront (currentl
 
 ### Event taxonomy
 
-Categories defined in `Category` enum: `musique`, `spectacles`, `sport`, `expositions`, `cinéma`, `festival`, `conférences`, `famille`, `gastronomie`, `vie-nocturne`, `autre`.
+Categories defined in `Category` enum: `musique`, `spectacles`, `sport`, `expositions`, `cinéma`, `festival`, `conférences`, `ateliers`, `famille`, `gastronomie`, `vie-nocturne`, `autre`.
 
 ## Environment variables
 
