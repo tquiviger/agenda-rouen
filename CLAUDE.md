@@ -38,7 +38,7 @@ This is a **fully static architecture** — no database, no API server. The Lamb
 - **`src/agenda_rouen/scrapers/openagenda.py`** — Generic scraper for OpenAgenda v2 JSON API (no API key needed). Handles 3 agendas: Métropole (UID 11362982), Ville de Rouen (11174431), Bibliothèques (8049538). Cursor-based pagination via `after[]` params. Time-filtered via `timings[gte]`/`timings[lte]`.
 - **`src/agenda_rouen/scrapers/jds.py`** — HTML scraper for jds.fr. Parses `ul.list-articles-v2 > li` cards with BeautifulSoup. Page-based pagination (`?&page=N`). Client-side date filtering with early pagination stop.
 - **`src/agenda_rouen/scrapers/rouen_on_est.py`** — Google Calendar API scraper. Fetches 5 public calendars (Grands événements, Animations & Spectacles, Culture & Expos, Dates majeures, Sports & Compétitions). Requires `GOOGLE_CALENDAR_API_KEY`.
-- **`src/agenda_rouen/classifier/llm.py`** — Classifies events via Gemini 2.5 Flash. Maps raw categories to our unified taxonomy using a static mapping with LLM fallback for unknown categories.
+- **`src/agenda_rouen/classifier/llm.py`** — Classifies events via Gemini 2.5 Flash. Maps raw categories to our unified taxonomy using a static mapping with LLM fallback for unknown categories. Deduplicates events by normalized title + date.
 - **`src/agenda_rouen/storage/s3.py`** — Publishes classified events as static JSON files to S3 (`events.json`, `dates/{date}.json`, `categories/{cat}.json`).
 - **`src/agenda_rouen/handler.py`** — Lambda entry point. Orchestrates: scrape all → classify → publish.
 - **`src/agenda_rouen/models.py`** — `RawEvent` (pre-classification), `Event` (post-classification), `Category` enum (unified taxonomy).

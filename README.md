@@ -224,13 +224,14 @@ Les 5 scrapers s'exécutent **en parallèle** (async) et collectent les événem
 - **JDS** — parsing HTML avec BeautifulSoup, pagination par page, filtrage client-side avec arrêt anticipé
 - **RouenOnEst** — Google Calendar API avec `timeMin`/`timeMax`
 
-### 2. Classification (Gemini)
+### 2. Classification + Déduplication
 
 Les événements bruts (`RawEvent`) sont classifiés via **Gemini 2.5 Flash** :
 
 - Mapping statique des catégories sources connues vers notre taxonomie unifiée
 - Appel LLM uniquement pour les catégories sources inconnues
 - Classification par titre (via LLM) pour les événements sans catégorie source
+- Déduplication par titre normalisé + date (sans LLM) — conserve l'entrée avec la description la plus longue
 
 ### 3. Publication
 
