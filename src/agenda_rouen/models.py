@@ -17,10 +17,8 @@ class Category(StrEnum):
     EXHIBITION = "expositions"
     CINEMA = "cinéma"
     FESTIVAL = "festival"
-    CONFERENCE = "conférences"
     WORKSHOP = "ateliers"
     FAMILY = "famille"
-    FOOD = "gastronomie"
     NIGHTLIFE = "vie-nocturne"
     OTHER = "autre"
 

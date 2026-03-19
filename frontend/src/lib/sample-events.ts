@@ -139,7 +139,7 @@ export const SAMPLE_EVENTS: Event[] = [
     time: "14:30",
     location: "Bibliothèque des Capucins",
     address: "1 Rue des Capucins, 76000 Rouen",
-    category: "conférences",
+    category: "ateliers",
     tags: ["atelier", "science", "climat"],
     urls: ["https://openagenda.com/events/labo-climat"],
     image_url: "",

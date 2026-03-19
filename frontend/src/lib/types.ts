@@ -5,10 +5,8 @@ export type Category =
   | "expositions"
   | "cinéma"
   | "festival"
-  | "conférences"
   | "ateliers"
   | "famille"
-  | "gastronomie"
   | "vie-nocturne"
   | "autre";
 
@@ -39,10 +37,8 @@ export const CATEGORY_CONFIG: Record<
   expositions: { label: "Expositions", color: "text-purple-700", bg: "bg-purple-100", emoji: "🎨" },
   cinéma: { label: "Cinéma", color: "text-red-700", bg: "bg-red-100", emoji: "🎬" },
   festival: { label: "Festival", color: "text-yellow-700", bg: "bg-yellow-100", emoji: "🎉" },
-  conférences: { label: "Conférences", color: "text-blue-700", bg: "bg-blue-100", emoji: "🎤" },
   ateliers: { label: "Ateliers", color: "text-cyan-700", bg: "bg-cyan-100", emoji: "🛠️" },
   famille: { label: "Famille", color: "text-teal-700", bg: "bg-teal-100", emoji: "👨‍👩‍👧" },
-  gastronomie: { label: "Gastronomie", color: "text-amber-700", bg: "bg-amber-100", emoji: "🍽️" },
   "vie-nocturne": { label: "Vie nocturne", color: "text-indigo-700", bg: "bg-indigo-100", emoji: "🌙" },
   autre: { label: "Autre", color: "text-gray-700", bg: "bg-gray-100", emoji: "📌" },
 };

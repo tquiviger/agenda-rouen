@@ -47,8 +47,9 @@ et les valeurs sont les catégories de notre taxonomie.
 
 _TITLE_BATCH_SIZE = 100
 
-# Static fallback mapping for known raw categories (avoids LLM call when quota is exhausted)
-_STATIC_CAT_MAPPING: dict[str, str] = {
+# Static fallback mapping for known raw categories (avoids LLM call when quota is exhausted).
+# None means the category should be excluded (events will be dropped).
+_STATIC_CAT_MAPPING: dict[str, str | None] = {
     "Ateliers à Rouen": "ateliers",
     "Balades à Rouen": "famille",
     "Bien-être à Rouen": "autre",
@@ -56,18 +57,18 @@ _STATIC_CAT_MAPPING: dict[str, str] = {
     "Chanson française à Rouen": "musique",
     "Cinéma à Rouen": "cinéma",
     "Concerts à Rouen": "musique",
-    "Conférences à Rouen": "conférences",
+    "Conférences à Rouen": None,
     "Courses à Rouen": "sport",
     "Danse à Rouen": "spectacles",
     "Electro à Rouen": "musique",
     "Expos à Rouen": "expositions",
     "Festival à Rouen": "festival",
     "Foires à Rouen": "famille",
-    "Gastronomie à Rouen": "gastronomie",
+    "Gastronomie à Rouen": None,
     "Humour à Rouen": "spectacles",
     "Lotos à Rouen": "autre",
     "Manifestations à Rouen": "autre",
-    "Marchés à Rouen": "gastronomie",
+    "Marchés à Rouen": None,
     "Musique classique à Rouen": "musique",
     "Pop / folk à Rouen": "musique",
     "Rap à Rouen": "musique",
@@ -113,7 +114,7 @@ async def classify(
     categories_str = ", ".join(c.value for c in Category)
 
     # Step 1: map raw categories using static fallback, call Gemini only for unknown ones
-    cat_mapping: dict[str, str] = dict(_STATIC_CAT_MAPPING)
+    cat_mapping: dict[str, str | None] = dict(_STATIC_CAT_MAPPING)
     unique_cats = {e.raw_category for e in raw_events if e.raw_category}
     unknown_cats = unique_cats - set(cat_mapping)
 
@@ -172,11 +173,14 @@ async def classify(
             continue
         seen.add(dedup_key)
 
-        # Resolve category
+        # Resolve category — None means excluded
         if raw.raw_category:
             cat_value = cat_mapping.get(raw.raw_category, Category.OTHER.value)
         else:
             cat_value = title_mapping.get(raw.title, Category.OTHER.value)
+
+        if cat_value is None:
+            continue
 
         try:
             category = Category(cat_value)

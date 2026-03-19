@@ -89,3 +89,34 @@ class TestDedup:
         events = await classify(raw)
         assert len(events) == 1
         assert events[0].description == "A much longer description"
+
+
+class TestExcludedCategories:
+    @pytest.mark.asyncio
+    async def test_conferences_excluded(self) -> None:
+        raw = [_make_raw(raw_category="Conférences à Rouen")]
+        events = await classify(raw)
+        assert len(events) == 0
+
+    @pytest.mark.asyncio
+    async def test_gastronomie_excluded(self) -> None:
+        raw = [_make_raw(raw_category="Gastronomie à Rouen")]
+        events = await classify(raw)
+        assert len(events) == 0
+
+    @pytest.mark.asyncio
+    async def test_marches_excluded(self) -> None:
+        raw = [_make_raw(raw_category="Marchés à Rouen")]
+        events = await classify(raw)
+        assert len(events) == 0
+
+    @pytest.mark.asyncio
+    async def test_non_excluded_kept(self) -> None:
+        raw = [
+            _make_raw(title="Concert", raw_category="Concerts à Rouen"),
+            _make_raw(title="Conférence", raw_category="Conférences à Rouen"),
+            _make_raw(title="Marché", raw_category="Marchés à Rouen"),
+        ]
+        events = await classify(raw)
+        assert len(events) == 1
+        assert events[0].title == "Concert"

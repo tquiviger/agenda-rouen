@@ -411,8 +411,9 @@ Tous les événements classifiés et dédupliqués.
 | `expositions` | 🎨 | Expositions, galeries, visites guidées |
 | `cinéma` | 🎬 | Projections, avant-premières |
 | `festival` | 🎉 | Festivals multi-disciplinaires |
-| `conférences` | 🎤 | Conférences, ateliers, formations |
+| `ateliers` | 🛠️ | Ateliers créatifs, scientifiques, participatifs |
 | `famille` | 👨‍👩‍👧 | Activités familiales, ateliers enfants |
-| `gastronomie` | 🍽️ | Marchés, dégustations, événements culinaires |
 | `vie-nocturne` | 🌙 | Soirées, clubs, bars |
 | `autre` | 📌 | Tout ce qui ne rentre pas ailleurs |
+
+> Les catégories `conférences` et `gastronomie` sont exclues du pipeline (événements supprimés).
