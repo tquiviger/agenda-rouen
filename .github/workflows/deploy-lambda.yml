@@ -6,6 +6,7 @@ on:
     paths:
       - "src/**"
       - "template.yaml"
+      - ".github/workflows/deploy-lambda.yml"
 
 jobs:
   test:
