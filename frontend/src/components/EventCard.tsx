@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { formatDateRange } from "@/lib/filters";
 import { CATEGORY_CONFIG, type Event } from "@/lib/types";
 
@@ -8,20 +9,36 @@ interface Props {
   onClick: () => void;
 }
 
+function CategoryPlaceholder({ emoji, label, color, bg }: { emoji: string; label: string; color: string; bg: string }) {
+  return (
+    <div className={`relative h-28 sm:h-36 ${bg} flex items-center justify-center overflow-hidden`}>
+      <span className="text-6xl sm:text-7xl opacity-20">{emoji}</span>
+      <div className="absolute top-3 left-3">
+        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold bg-white/80 ${color}`}>
+          {emoji} {label}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export default function EventCard({ event, onClick }: Props) {
   const cat = CATEGORY_CONFIG[event.category];
+  const [imgError, setImgError] = useState(false);
+  const hasImage = event.image_url && !imgError;
 
   return (
     <button
       onClick={onClick}
       className="group flex flex-col overflow-hidden rounded-2xl bg-white shadow-sm border border-gray-100 transition-all hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] text-left w-full"
     >
-      {/* Image or colored header */}
-      {event.image_url ? (
-        <div className="relative h-36 sm:h-44 overflow-hidden">
+      {/* Image or colored placeholder */}
+      {hasImage ? (
+        <div className="relative h-28 sm:h-36 overflow-hidden">
           <img
             src={event.image_url}
             alt={event.title}
+            onError={() => setImgError(true)}
             className="h-full w-full object-cover transition-transform group-hover:scale-105"
           />
           <div className="absolute top-3 left-3">
@@ -31,14 +48,7 @@ export default function EventCard({ event, onClick }: Props) {
           </div>
         </div>
       ) : (
-        <div className={`relative h-24 sm:h-28 ${cat.bg} flex items-center justify-center`}>
-          <span className="text-4xl sm:text-5xl opacity-30">{cat.emoji}</span>
-          <div className="absolute top-3 left-3">
-            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold bg-white/80 ${cat.color}`}>
-              {cat.emoji} {cat.label}
-            </span>
-          </div>
-        </div>
+        <CategoryPlaceholder emoji={cat.emoji} label={cat.label} color={cat.color} bg={cat.bg} />
       )}
 
       {/* Content */}
