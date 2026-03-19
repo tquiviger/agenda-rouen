@@ -9,6 +9,16 @@ Parameters:
     Default: agenda-rouen-events
     Description: Name of the S3 bucket for published JSON files
 
+  GeminiApiKey:
+    Type: String
+    NoEcho: true
+    Description: Google Gemini API key for event classification
+
+  GoogleCalendarApiKey:
+    Type: String
+    NoEcho: true
+    Description: Google Calendar API key for RouenOnEst scraper
+
   ScheduleExpression:
     Type: String
     Default: "cron(0 6 * * ? *)"
@@ -34,11 +44,16 @@ Resources:
       Environment:
         Variables:
           EVENTS_BUCKET: !Ref EventsBucketName
-          # GEMINI_API_KEY and GOOGLE_CALENDAR_API_KEY are set manually
-          # in the Lambda console to avoid storing secrets in CloudFormation.
+          GEMINI_API_KEY: !Ref GeminiApiKey
+          GOOGLE_CALENDAR_API_KEY: !Ref GoogleCalendarApiKey
+          CLOUDFRONT_DISTRIBUTION_ID: !Ref CDNDistribution
       Policies:
         - S3CrudPolicy:
             BucketName: !Ref EventsBucketName
+        - Statement:
+            - Effect: Allow
+              Action: cloudfront:CreateInvalidation
+              Resource: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${CDNDistribution}"
       Events:
         DailySchedule:
           Type: Schedule

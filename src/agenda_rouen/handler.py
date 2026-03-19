@@ -5,7 +5,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import time
 from typing import Any
+
+import boto3
 
 from agenda_rouen.classifier.llm import classify
 from agenda_rouen.models import RawEvent
@@ -19,6 +22,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 BUCKET = os.environ.get("EVENTS_BUCKET", "agenda-rouen-events")
+CLOUDFRONT_DISTRIBUTION_ID = os.environ.get("CLOUDFRONT_DISTRIBUTION_ID", "")
 
 
 def _build_scrapers() -> list[BaseScraper]:
@@ -58,11 +62,31 @@ async def _run_pipeline() -> dict[str, Any]:
     keys = publish_to_s3(classified, bucket=BUCKET)
     logger.info("Published %d files to S3", len(keys))
 
+    # Invalidate CloudFront cache
+    if CLOUDFRONT_DISTRIBUTION_ID:
+        _invalidate_cloudfront(CLOUDFRONT_DISTRIBUTION_ID)
+
     return {
         "raw_count": len(all_raw),
         "classified_count": len(classified),
         "files_published": len(keys),
     }
+
+
+def _invalidate_cloudfront(distribution_id: str) -> None:
+    """Create a CloudFront invalidation for the API paths."""
+    try:
+        client = boto3.client("cloudfront")
+        client.create_invalidation(
+            DistributionId=distribution_id,
+            InvalidationBatch={
+                "Paths": {"Quantity": 1, "Items": ["/api/v1/*"]},
+                "CallerReference": str(int(time.time())),
+            },
+        )
+        logger.info("CloudFront invalidation created for %s", distribution_id)
+    except Exception:
+        logger.exception("Failed to invalidate CloudFront cache")
 
 
 def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
