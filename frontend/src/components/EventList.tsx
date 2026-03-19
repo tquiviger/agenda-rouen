@@ -63,7 +63,6 @@ export default function EventList({ events }: EventListProps) {
               <EventCard
                 key={event.id}
                 event={event}
-                featured={i % 7 === 0 && i < 21}
                 index={i}
                 onClick={() => setSelectedEvent(event)}
               />
