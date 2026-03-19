@@ -25,7 +25,8 @@ function CategoryPlaceholder({ emoji, label, color, bg }: { emoji: string; label
 export default function EventCard({ event, onClick }: Props) {
   const cat = CATEGORY_CONFIG[event.category];
   const [imgError, setImgError] = useState(false);
-  const hasImage = event.image_url && !imgError;
+  const isValidUrl = event.image_url && !event.image_url.endsWith("/main/");
+  const hasImage = isValidUrl && !imgError;
 
   return (
     <button

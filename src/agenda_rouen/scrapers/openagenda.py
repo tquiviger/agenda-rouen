@@ -107,11 +107,10 @@ def _parse_event(raw: dict, source: str) -> RawEvent | None:
     address_parts = [loc.get("address", ""), loc.get("postalCode", ""), loc.get("city", "")]
     address = ", ".join(p for p in address_parts if p)
 
-    # Image
+    # Image — filter out placeholder URLs like "https://cdn.openagenda.com/main/"
     image = raw.get("image") or {}
-    image_url = ""
-    if image.get("base"):
-        image_url = image["base"]
+    image_base = image.get("base", "")
+    image_url = image_base if image_base and not image_base.endswith("/main/") else ""
 
     # Build canonical URL
     slug = raw.get("slug", "")
