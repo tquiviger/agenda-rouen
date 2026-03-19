@@ -1,1 +1,1 @@
-"""LLM-based event classification and deduplication."""
+"""LLM-based event classification."""

@@ -1,5 +1,6 @@
 """Classify events by mapping raw categories to our unified taxonomy via Gemini."""
 
+
 from __future__ import annotations
 
 import hashlib
@@ -84,41 +85,6 @@ _STATIC_CAT_MAPPING: dict[str, str] = {
 }
 
 
-def _merge_duplicates(events: list[Event]) -> list[Event]:
-    """Merge Event objects that share the same ID (title+date+location hash)."""
-    seen: dict[str, Event] = {}
-    for event in events:
-        if event.id in seen:
-            existing = seen[event.id]
-            merged_urls = list(dict.fromkeys(existing.urls + event.urls))
-            merged_sources = list(dict.fromkeys(existing.sources + event.sources))
-            merged_tags = list(dict.fromkeys(existing.tags + event.tags))
-            description = (
-                event.description
-                if len(event.description) > len(existing.description)
-                else existing.description
-            )
-            image_url = existing.image_url or event.image_url
-            merged_cat = (
-                event.category
-                if existing.category == Category.OTHER and event.category != Category.OTHER
-                else existing.category
-            )
-            seen[event.id] = existing.model_copy(
-                update={
-                    "urls": merged_urls,
-                    "sources": merged_sources,
-                    "tags": merged_tags,
-                    "description": description,
-                    "image_url": image_url,
-                    "category": merged_cat,
-                },
-            )
-        else:
-            seen[event.id] = event
-    return list(seen.values())
-
-
 def _event_id(title: str, date_start: str, location: str) -> str:
     """Generate a deterministic ID from key event fields."""
     raw = f"{title.lower().strip()}|{date_start}|{location.lower().strip()}"
@@ -129,12 +95,12 @@ def _get_client() -> genai.Client:
     return genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
 
-async def classify_and_dedup(
+async def classify(
     raw_events: list[RawEvent],
     *,
     model: str = "gemini-2.5-flash",
 ) -> list[Event]:
-    """Classify events using category mapping (1-2 LLM calls instead of N).
+    """Classify raw events into our unified taxonomy.
 
     Strategy:
     1. Collect unique raw_category values → ask Gemini for a mapping to our taxonomy.
@@ -192,9 +158,9 @@ async def classify_and_dedup(
                         i // _TITLE_BATCH_SIZE + 1,
                     )
 
-    # Step 3: build Event objects and deduplicate by ID
+    # Step 3: build Event objects
     now = datetime.now(UTC)
-    seen: dict[str, Event] = {}
+    events: list[Event] = []
 
     for raw in raw_events:
         # Resolve category
@@ -210,54 +176,29 @@ async def classify_and_dedup(
 
         eid = _event_id(raw.title, str(raw.date_start), raw.location)
 
-        if eid in seen:
-            # Merge into existing: combine urls and sources, keep longest description
-            existing = seen[eid]
-            merged_urls = list(dict.fromkeys(existing.urls + ([raw.url] if raw.url else [])))
-            merged_sources = list(dict.fromkeys(existing.sources + [raw.source]))
-            description = (
-                raw.description
-                if len(raw.description) > len(existing.description)
-                else existing.description
-            )
-            image_url = existing.image_url or raw.image_url
-            # Prefer a non-"autre" category
-            merged_cat = (
-                category
-                if existing.category == Category.OTHER and category != Category.OTHER
-                else existing.category
-            )
-            seen[eid] = existing.model_copy(
-                update={
-                    "urls": merged_urls,
-                    "sources": merged_sources,
-                    "description": description,
-                    "image_url": image_url,
-                    "category": merged_cat,
-                },
-            )
-        else:
-            seen[eid] = Event(
-                id=eid,
-                title=raw.title,
-                description=raw.description,
-                date_start=raw.date_start,
-                date_end=raw.date_end,
-                time=raw.time,
-                location=raw.location,
-                address=raw.address,
-                category=category,
-                tags=[],
-                urls=[raw.url] if raw.url else [],
-                image_url=raw.image_url,
-                sources=[raw.source],
-                classified_at=now,
-            )
+        events.append(Event(
+            id=eid,
+            title=raw.title,
+            description=raw.description,
+            date_start=raw.date_start,
+            date_end=raw.date_end,
+            time=raw.time,
+            location=raw.location,
+            address=raw.address,
+            category=category,
+            tags=[],
+            urls=[raw.url] if raw.url else [],
+            image_url=raw.image_url,
+            sources=[raw.source],
+            classified_at=now,
+        ))
 
-    events = list(seen.values())
-    logger.info("Classified %d raw → %d unique events (%d via category, %d via title)",
-                len(raw_events), len(events),
-                len(raw_events) - len(no_cat_events), len(no_cat_events))
+    logger.info(
+        "Classified %d events (%d via category, %d via title)",
+        len(events),
+        len(raw_events) - len(no_cat_events),
+        len(no_cat_events),
+    )
     return events
 
 

@@ -7,7 +7,7 @@ import logging
 import os
 from typing import Any
 
-from agenda_rouen.classifier.llm import classify_and_dedup
+from agenda_rouen.classifier.llm import classify
 from agenda_rouen.models import RawEvent
 from agenda_rouen.scrapers.base import BaseScraper
 from agenda_rouen.scrapers.jds import JdsScraper
@@ -50,9 +50,9 @@ async def _run_pipeline() -> dict[str, Any]:
 
     logger.info("Total raw events: %d", len(all_raw))
 
-    # Classify and deduplicate via LLM
-    classified = await classify_and_dedup(all_raw)
-    logger.info("Classified events: %d (after dedup)", len(classified))
+    # Classify via LLM
+    classified = await classify(all_raw)
+    logger.info("Classified events: %d", len(classified))
 
     # Publish to S3
     keys = publish_to_s3(classified, bucket=BUCKET)

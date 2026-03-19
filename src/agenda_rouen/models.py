@@ -42,7 +42,7 @@ class RawEvent(BaseModel):
 
 
 class Event(BaseModel):
-    """Classified and deduplicated event, ready for publication."""
+    """Classified event, ready for publication."""
 
     id: str = Field(description="Deterministic hash from title + date + location")
     title: str

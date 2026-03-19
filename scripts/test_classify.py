@@ -6,7 +6,7 @@ import logging
 
 from dotenv import load_dotenv
 
-from agenda_rouen.classifier.llm import classify_and_dedup
+from agenda_rouen.classifier.llm import classify
 from agenda_rouen.scrapers.openagenda import OpenAgendaScraper
 
 load_dotenv()
@@ -25,7 +25,7 @@ async def main() -> None:
 
     # Classify via Gemini
     print("\n--- Classifying via Gemini Flash... ---")
-    classified = await classify_and_dedup(raw_events[:10])
+    classified = await classify(raw_events[:10])
 
     print(f"\n--- Classified events: {len(classified)} ---")
     for e in classified:

@@ -38,9 +38,9 @@ This is a **fully static architecture** — no database, no API server. The Lamb
 - **`src/agenda_rouen/scrapers/openagenda.py`** — Generic scraper for OpenAgenda v2 JSON API (no API key needed). Handles 3 agendas: Métropole (UID 11362982), Ville de Rouen (11174431), Bibliothèques (8049538). Cursor-based pagination via `after[]` params. Time-filtered via `timings[gte]`/`timings[lte]`.
 - **`src/agenda_rouen/scrapers/jds.py`** — HTML scraper for jds.fr. Parses `ul.list-articles-v2 > li` cards with BeautifulSoup. Page-based pagination (`?&page=N`). Client-side date filtering with early pagination stop.
 - **`src/agenda_rouen/scrapers/rouen_on_est.py`** — Google Calendar API scraper. Fetches 5 public calendars (Grands événements, Animations & Spectacles, Culture & Expos, Dates majeures, Sports & Compétitions). Requires `GOOGLE_CALENDAR_API_KEY`.
-- **`src/agenda_rouen/classifier/llm.py`** — Classifies and deduplicates events via Gemini 2.5 Flash. Batches events in groups of 50 to respect context/rate limits. Cross-batch dedup merges events by deterministic ID (hash of title + date + location).
+- **`src/agenda_rouen/classifier/llm.py`** — Classifies events via Gemini 2.5 Flash. Maps raw categories to our unified taxonomy using a static mapping with LLM fallback for unknown categories.
 - **`src/agenda_rouen/storage/s3.py`** — Publishes classified events as static JSON files to S3 (`events.json`, `dates/{date}.json`, `categories/{cat}.json`).
-- **`src/agenda_rouen/handler.py`** — Lambda entry point. Orchestrates: scrape all → classify/dedup → publish.
+- **`src/agenda_rouen/handler.py`** — Lambda entry point. Orchestrates: scrape all → classify → publish.
 - **`src/agenda_rouen/models.py`** — `RawEvent` (pre-classification), `Event` (post-classification), `Category` enum (unified taxonomy).
 
 ### Frontend — `frontend/`
@@ -74,7 +74,7 @@ Categories defined in `Category` enum: `musique`, `spectacles`, `sport`, `exposi
 
 | Variable | Used by | Description |
 |----------|---------|-------------|
-| `GEMINI_API_KEY` | classifier | Google Gemini API key for classification/dedup |
+| `GEMINI_API_KEY` | classifier | Google Gemini API key for classification |
 | `GOOGLE_CALENDAR_API_KEY` | rouen_on_est scraper | Google Calendar API key |
 | `EVENTS_BUCKET` | storage | S3 bucket name (default: `agenda-rouen-events`) |
 | `AWS_DEFAULT_REGION` | storage | AWS region (default: `eu-west-3`) |
@@ -86,6 +86,6 @@ Categories defined in `Category` enum: `musique`, `spectacles`, `sport`, `exposi
 - Scraper tests use `httpx.MockTransport` to mock HTTP responses.
 - Storage tests use **moto** for S3 mocking — no real AWS calls in tests.
 - The LLM classifier uses **Gemini 2.5 Flash** (`google-genai` SDK) with `response_mime_type="application/json"`.
-- Classifier batches events in groups of 50, then merges duplicates across batches.
+- Classifier uses a static category mapping with LLM fallback for unknown categories, and title-based classification for events without a raw category.
 - Region: `eu-west-3` (Paris).
 - Frontend uses sample data for now (`sample-events.ts`), to be replaced by CloudFront fetch.

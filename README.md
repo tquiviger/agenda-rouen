@@ -157,7 +157,7 @@ AWS_DEFAULT_REGION=eu-west-3
 
 | Variable | Requis | Description |
 |----------|:------:|-------------|
-| `GEMINI_API_KEY` | Oui | Clé API Gemini pour la classification et déduplication |
+| `GEMINI_API_KEY` | Oui | Clé API Gemini pour la classification |
 | `GOOGLE_CALENDAR_API_KEY` | Oui | Clé API Google Calendar (scraper RouenOnEst) |
 | `EVENTS_BUCKET` | Non | Nom du bucket S3 (défaut : `agenda-rouen-events`) |
 | `AWS_DEFAULT_REGION` | Non | Région AWS (défaut : `eu-west-3` Paris) |
@@ -224,15 +224,13 @@ Les 5 scrapers s'exécutent **en parallèle** (async) et collectent les événem
 - **JDS** — parsing HTML avec BeautifulSoup, pagination par page, filtrage client-side avec arrêt anticipé
 - **RouenOnEst** — Google Calendar API avec `timeMin`/`timeMax`
 
-### 2. Classification + Déduplication (Gemini)
+### 2. Classification (Gemini)
 
-Les événements bruts (`RawEvent`) sont envoyés à **Gemini 2.5 Flash** par lots de 50 :
+Les événements bruts (`RawEvent`) sont classifiés via **Gemini 2.5 Flash** :
 
-- Assignation d'une **catégorie** parmi la taxonomie unifiée
-- Génération de **1 à 3 tags** descriptifs en français
-- **Déduplication intra-batch** par le LLM (titre similaire + même date + même lieu)
-- **Déduplication cross-batch** par ID déterministe (SHA-256 de `titre|date|lieu`)
-- Fusion des doublons : URLs combinées, sources combinées, description la plus longue conservée
+- Mapping statique des catégories sources connues vers notre taxonomie unifiée
+- Appel LLM uniquement pour les catégories sources inconnues
+- Classification par titre (via LLM) pour les événements sans catégorie source
 
 ### 3. Publication
 
@@ -336,7 +334,7 @@ agenda-rouen/
 │   │   ├── jds.py                   # HTML scraper jds.fr
 │   │   └── rouen_on_est.py          # Google Calendar API
 │   ├── classifier/
-│   │   └── llm.py                   # Gemini classification + batching + dedup
+│   │   └── llm.py                   # Gemini classification
 │   └── storage/
 │       └── s3.py                    # Publication JSON → S3
 ├── tests/                           # 45 tests pytest
