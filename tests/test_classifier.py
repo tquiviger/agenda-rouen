@@ -116,6 +116,30 @@ class TestSourceOverrides:
         assert len(events) == 1
         assert events[0].category == "musique"
 
+    @pytest.mark.asyncio
+    async def test_bibliotheques_wins_dedup_over_metropole(self) -> None:
+        """When the same event appears in both metropole and bibliotheques,
+        the bibliotheques version wins dedup and the ateliers override applies."""
+        raw = [
+            # metropole version — longer description, would normally win
+            _make_raw(
+                title="Atelier poterie",
+                source="openagenda_metropole",
+                raw_category="Ateliers à Rouen",
+                description="Une très longue description pour cet atelier de poterie.",
+            ),
+            # bibliotheques version — shorter description but source override
+            _make_raw(
+                title="Atelier poterie",
+                source="openagenda_bibliotheques",
+                raw_category="Ateliers à Rouen",
+                description="Court.",
+            ),
+        ]
+        events = await classify(raw)
+        assert len(events) == 1
+        assert events[0].category == "ateliers"
+
 
 class TestExcludedCategories:
     @pytest.mark.asyncio

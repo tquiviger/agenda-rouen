@@ -169,8 +169,14 @@ async def classify(
     seen: set[tuple[str, str]] = set()
     events: list[Event] = []
 
-    # Sort by longest description first so dedup keeps the richest entry
-    sorted_raw = sorted(raw_events, key=lambda e: len(e.description), reverse=True)
+    # Sort so dedup keeps the best entry:
+    # 1. Source overrides first (e.g. openagenda_bibliotheques always wins over metropole)
+    # 2. Then longest description for the richest content
+    def _sort_key(e: RawEvent) -> tuple[int, int]:
+        source_priority = 0 if e.source in _SOURCE_CATEGORY_OVERRIDES else 1
+        return (source_priority, -len(e.description))
+
+    sorted_raw = sorted(raw_events, key=_sort_key)
 
     for raw in sorted_raw:
         dedup_key = (raw.title.lower().strip(), str(raw.date_start))
