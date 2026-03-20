@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import CategoryFilter from "@/components/CategoryFilter";
+import CdnErrorBanner from "@/components/CdnErrorBanner";
 import DateFilter from "@/components/DateFilter";
 import EventCard from "@/components/EventCard";
 import EventModal from "@/components/EventModal";
@@ -12,9 +13,10 @@ import type { Category, DateFilter as DateFilterType, Event } from "@/lib/types"
 
 interface EventListProps {
   events: Event[];
+  cdnError?: boolean;
 }
 
-export default function EventList({ events }: EventListProps) {
+export default function EventList({ events, cdnError = false }: EventListProps) {
   const [dateFilter, setDateFilter] = useState<DateFilterType>("all");
   const [categoryFilter, setCategoryFilter] = useState<Category | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
@@ -36,6 +38,13 @@ export default function EventList({ events }: EventListProps) {
         <div className="pt-8 pb-6">
           <Header eventCount={filtered.length} />
         </div>
+
+        {/* CDN error banner */}
+        {cdnError && (
+          <div className="pb-4">
+            <CdnErrorBanner />
+          </div>
+        )}
 
         {/* Filters */}
         <div

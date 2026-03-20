@@ -5,7 +5,8 @@ const API_PREFIX = "api/v1";
 
 /**
  * Fetch all events from the CloudFront CDN.
- * Falls back to an empty array on failure.
+ * Returns [] silently when CDN_BASE_URL is not set (dev / sample-data mode).
+ * Throws when the CDN is configured but unreachable or returns an error status.
  */
 export async function fetchEvents(): Promise<Event[]> {
   if (!CDN_BASE_URL) {
@@ -17,8 +18,7 @@ export async function fetchEvents(): Promise<Event[]> {
   });
 
   if (!res.ok) {
-    console.error(`Failed to fetch events: ${res.status} ${res.statusText}`);
-    return [];
+    throw new Error(`CDN error ${res.status}: ${res.statusText}`);
   }
 
   return res.json();
