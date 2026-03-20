@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTheme } from "@/components/ThemeProvider";
 import { formatDateRange, getTimeBadge } from "@/lib/filters";
 import { CATEGORY_CONFIG, type Event } from "@/lib/types";
 
@@ -35,6 +36,7 @@ export default function EventModal({ event, onClose }: Props) {
 
   if (!event) return null;
 
+  const { dark } = useTheme();
   const cat = CATEGORY_CONFIG[event.category];
   const isValidUrl = event.image_url && !event.image_url.endsWith("/main/");
   const hasImage = isValidUrl && !imgError;
@@ -98,7 +100,10 @@ export default function EventModal({ event, onClose }: Props) {
         <div className="p-5 sm:p-6 space-y-3">
           {/* Badges row */}
           <div className="flex items-center gap-2 flex-wrap">
-            <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs sm:text-sm font-semibold ${cat.bg} ${cat.color} dark:${cat.darkBg} dark:${cat.darkColor}`}>
+            <span
+              className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs sm:text-sm font-semibold"
+              style={{ backgroundColor: dark ? cat.darkBg : cat.bg, color: dark ? cat.darkColor : cat.color }}
+            >
               {cat.emoji} {cat.label}
             </span>
             {timeBadge && (

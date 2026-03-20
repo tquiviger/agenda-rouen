@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTheme } from "@/components/ThemeProvider";
 import { formatDateRange, getTimeBadge } from "@/lib/filters";
 import { CATEGORY_CONFIG, type Event } from "@/lib/types";
 
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export default function EventCard({ event, index, onClick }: Props) {
+  const { dark } = useTheme();
   const cat = CATEGORY_CONFIG[event.category];
   const [imgError, setImgError] = useState(false);
   const isValidUrl = event.image_url && !event.image_url.endsWith("/main/");
@@ -61,7 +63,10 @@ export default function EventCard({ event, index, onClick }: Props) {
         {/* Top badges row */}
         <div className="absolute top-3 left-3 right-3 flex items-start justify-between gap-2">
           {/* Category badge */}
-          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold backdrop-blur-md ${cat.bg} ${cat.color} dark:${cat.darkBg} dark:${cat.darkColor}`}>
+          <span
+            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold backdrop-blur-md"
+            style={{ backgroundColor: dark ? cat.darkBg : cat.bg, color: dark ? cat.darkColor : cat.color }}
+          >
             {cat.emoji} {cat.label}
           </span>
 
