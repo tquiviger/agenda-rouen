@@ -46,7 +46,7 @@ class OpenAgendaScraper(BaseScraper):
         time_min = now.strftime("%Y-%m-%dT%H:%M:%S%z")
         time_max = (now + timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%S%z")
 
-        for page in range(1, _MAX_PAGES + 1):
+        for _page in range(1, _MAX_PAGES + 1):
             params: list[tuple[str, str | int]] = [
                 ("detailed", 1),
                 ("limit", _PAGE_SIZE),

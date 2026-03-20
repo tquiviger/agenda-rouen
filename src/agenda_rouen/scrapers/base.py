@@ -5,6 +5,7 @@ from __future__ import annotations
 import abc
 import asyncio
 import logging
+from typing import Any
 
 import httpx
 
@@ -39,7 +40,7 @@ class BaseScraper(abc.ABC):
         self,
         url: str,
         *,
-        params: dict[str, str | int] | list[tuple[str, str | int]] | None = None,
+        params: Any = None,
     ) -> httpx.Response:
         """HTTP GET with exponential backoff on transient errors (502/503/504/429)."""
         last_exc: Exception | None = None

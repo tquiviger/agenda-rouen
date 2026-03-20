@@ -194,6 +194,7 @@ async def classify(
         seen.add(dedup_key)
 
         # Source-level override takes priority over any raw_category or title mapping
+        cat_value: str | None
         if raw.source in _SOURCE_CATEGORY_OVERRIDES:
             cat_value = _SOURCE_CATEGORY_OVERRIDES[raw.source]
         elif raw.raw_category:
@@ -258,10 +259,12 @@ def _gemini_call(
                     response_mime_type="application/json",
                 ),
             )
+            text = response.text or ""
             try:
-                return json.loads(response.text)
+                result: dict[str, str] = json.loads(text)
+                return result
             except (json.JSONDecodeError, TypeError) as exc:
-                logger.error("Gemini returned invalid JSON: %s", response.text[:200])
+                logger.error("Gemini returned invalid JSON: %s", text[:200])
                 raise ValueError("Invalid JSON from Gemini") from exc
 
         except genai_errors.ClientError as exc:
