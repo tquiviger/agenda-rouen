@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, DM_Serif_Display } from "next/font/google";
 import "./globals.css";
 import { ThemeScript } from "@/components/ThemeProvider";
+import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -38,6 +39,7 @@ export default function RootLayout({
         <ThemeScript />
       </head>
       <body className={`${inter.variable} ${dmSerif.variable} font-sans antialiased`}>
+        <ServiceWorkerRegistration />
         {children}
       </body>
     </html>

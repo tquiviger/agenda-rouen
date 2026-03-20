@@ -89,7 +89,7 @@ class RouenOnEstScraper(BaseScraper):
                 params["pageToken"] = page_token
 
             url = _GCAL_API.format(calendar_id=calendar_id)
-            resp = await self._client.get(url, params=params)
+            resp = await self._get(url, params=params)
 
             if resp.status_code == 403:
                 logger.warning("Access denied for calendar %s — check API key", calendar_id[:20])

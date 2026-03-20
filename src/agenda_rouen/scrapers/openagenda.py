@@ -58,7 +58,7 @@ class OpenAgendaScraper(BaseScraper):
                     params.append(("after[]", val))
 
             url = _BASE_URL.format(uid=self._uid)
-            resp = await self._client.get(url, params=params)
+            resp = await self._get(url, params=params)
             resp.raise_for_status()
             try:
                 data = resp.json()

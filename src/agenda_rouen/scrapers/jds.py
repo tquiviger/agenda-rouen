@@ -60,7 +60,7 @@ class JdsScraper(BaseScraper):
         for offset in range(_WINDOW_DAYS):
             day = today + timedelta(days=offset)
             url = _day_url(day)
-            resp = await self._client.get(url)
+            resp = await self._get(url)
 
             if resp.status_code == 404:
                 logger.debug("JDS: no page for %s", day.isoformat())
