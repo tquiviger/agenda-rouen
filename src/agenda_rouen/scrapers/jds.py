@@ -3,10 +3,13 @@
 Strategy: fetch one page per day for the next 30 days using JDS per-day URLs
 (e.g. /agenda-du-jour/mercredi-18-mars-2026-18-3-2026_JPJ). Multi-day events
 that appear on several day pages are deduplicated by their event URL.
+
+Day pages are fetched concurrently in batches to avoid overwhelming the server.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from datetime import date, timedelta
@@ -20,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 _BASE_DAY_URL = "https://www.jds.fr/rouen/agenda/agenda-du-jour"
 _WINDOW_DAYS = 30
+_CONCURRENCY = 5  # fetch up to 5 day-pages at once
 
 _FR_WEEKDAYS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
 _FR_MONTHS = {
@@ -52,39 +56,48 @@ class JdsScraper(BaseScraper):
     name = "jds"
 
     async def scrape(self) -> list[RawEvent]:
-        events: list[RawEvent] = []
-        # Deduplicate multi-day events that appear on every day page in their range
-        seen: set[str] = set()
         today = date.today()
+        days = [today + timedelta(days=offset) for offset in range(_WINDOW_DAYS)]
 
-        for offset in range(_WINDOW_DAYS):
-            day = today + timedelta(days=offset)
-            url = _day_url(day)
-            resp = await self._get(url)
+        # Fetch day pages concurrently, limited by semaphore
+        sem = asyncio.Semaphore(_CONCURRENCY)
+        results = await asyncio.gather(*(self._fetch_day(day, sem) for day in days))
 
-            if resp.status_code == 404:
-                logger.debug("JDS: no page for %s", day.isoformat())
-                continue
-            resp.raise_for_status()
-
-            soup = BeautifulSoup(resp.text, "lxml")
-            cards = soup.select("ul.list-articles-v2 > li.col-12[data-view-id]")
-
-            day_count = 0
-            for card in cards:
-                event = _parse_card(card)
-                if event is None:
-                    continue
+        # Flatten and deduplicate multi-day events by URL
+        events: list[RawEvent] = []
+        seen: set[str] = set()
+        for day_events in results:
+            for event in day_events:
                 dedup_key = event.url or f"{event.title}|{event.date_start}"
                 if dedup_key in seen:
                     continue
                 seen.add(dedup_key)
                 events.append(event)
-                day_count += 1
-
-            logger.info("JDS %s: %d new events", day.isoformat(), day_count)
 
         logger.info("JDS total: %d events", len(events))
+        return events
+
+    async def _fetch_day(self, day: date, sem: asyncio.Semaphore) -> list[RawEvent]:
+        """Fetch and parse events for a single day."""
+        async with sem:
+            url = _day_url(day)
+            resp = await self._get(url)
+
+            if resp.status_code == 404:
+                logger.debug("JDS: no page for %s", day.isoformat())
+                return []
+            resp.raise_for_status()
+
+        soup = BeautifulSoup(resp.text, "lxml")
+        cards = soup.select("ul.list-articles-v2 > li.col-12[data-view-id]")
+
+        events: list[RawEvent] = []
+        for card in cards:
+            event = _parse_card(card)
+            if event is not None:
+                events.append(event)
+
+        logger.info("JDS %s: %d events", day.isoformat(), len(events))
         return events
 
 
