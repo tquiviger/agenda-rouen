@@ -18,7 +18,9 @@ export default function SearchBar({ value, onChange }: Props) {
       >
         <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
       </svg>
+      <label htmlFor="event-search" className="sr-only">Rechercher un événement</label>
       <input
+        id="event-search"
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -33,6 +35,7 @@ export default function SearchBar({ value, onChange }: Props) {
       {value && (
         <button
           onClick={() => onChange("")}
+          aria-label="Effacer la recherche"
           className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 transition-colors hover:opacity-70"
           style={{ color: "var(--muted)" }}
         >

@@ -24,6 +24,7 @@ export default function EventCard({ event, index, onClick }: Props) {
   return (
     <button
       onClick={onClick}
+      aria-label={`Voir les détails : ${event.title}`}
       className="animate-card group relative flex flex-col overflow-hidden rounded-2xl text-left w-full transition-all duration-300 hover:-translate-y-1 active:scale-[0.98]"
       style={{
         animationDelay: `${delay}ms`,
