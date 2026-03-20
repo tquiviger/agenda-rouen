@@ -11,6 +11,7 @@ interface Props {
 }
 
 export default function EventModal({ event, onClose }: Props) {
+  const { dark } = useTheme();
   const [imgError, setImgError] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
@@ -70,7 +71,6 @@ export default function EventModal({ event, onClose }: Props) {
 
   if (!event) return null;
 
-  const { dark } = useTheme();
   const cat = CATEGORY_CONFIG[event.category];
   const isValidUrl = event.image_url && !event.image_url.endsWith("/main/");
   const hasImage = isValidUrl && !imgError;
