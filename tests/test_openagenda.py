@@ -129,6 +129,28 @@ class TestParseEvent:
         assert event is not None
         assert event.url == "https://fallback.example.com"
 
+    def test_url_ignores_mailto(self) -> None:
+        """mailto: values are skipped and fall through to links[]."""
+        raw = {
+            **SAMPLE_EVENT,
+            "registration": [{"type": "link", "value": "mailto:contact@example.com"}],
+            "links": [{"link": "https://fallback.example.com"}],
+        }
+        event = _parse_event(raw, source="test")
+        assert event is not None
+        assert event.url == "https://fallback.example.com"
+
+    def test_url_empty_when_only_mailto(self) -> None:
+        """URL is empty when the only entry is a mailto: with no links fallback."""
+        raw = {
+            **SAMPLE_EVENT,
+            "registration": [{"type": "link", "value": "mailto:contact@example.com"}],
+            "links": [],
+        }
+        event = _parse_event(raw, source="test")
+        assert event is not None
+        assert event.url == ""
+
     def test_parse_event_no_title(self) -> None:
         raw = {**SAMPLE_EVENT, "title": {"fr": ""}}
         assert _parse_event(raw, source="test") is None

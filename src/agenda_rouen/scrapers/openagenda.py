@@ -113,15 +113,18 @@ def _parse_event(raw: dict, source: str) -> RawEvent | None:
     image_url = image_base if image_base and not image_base.endswith("/main/") else ""
 
     # URL: prefer registration link, then links[], fall back to empty
+    # Ignore mailto: entries — they are contact emails, not navigable URLs
     event_url = ""
     for reg in raw.get("registration", []):
-        if reg.get("type") == "link" and reg.get("value"):
-            event_url = reg["value"]
+        value = reg.get("value", "")
+        if reg.get("type") == "link" and value and not value.startswith("mailto:"):
+            event_url = value
             break
     if not event_url:
         for link in raw.get("links", []):
-            if link.get("link"):
-                event_url = link["link"]
+            value = link.get("link", "")
+            if value and not value.startswith("mailto:"):
+                event_url = value
                 break
 
     # Description
