@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from datetime import UTC, date, datetime, timedelta
 
 from agenda_rouen.models import RawEvent
@@ -16,6 +17,11 @@ from agenda_rouen.scrapers.base import BaseScraper
 logger = logging.getLogger(__name__)
 
 _GCAL_API = "https://www.googleapis.com/calendar/v3/calendars/{calendar_id}/events"
+
+# Regex to extract time from titles like "Event (20h)" or "Event (20h30)"
+_TIME_IN_TITLE_RE = re.compile(r"\s*\((\d{1,2})h(\d{2})?\)\s*$")
+
+_SPORTS_CATEGORY = "Sports & Compétitions"
 
 # Calendar ID → human-readable category label
 CALENDARS: dict[str, str] = {
@@ -107,6 +113,20 @@ class RouenOnEstScraper(BaseScraper):
         return events
 
 
+def _extract_time_from_title(title: str) -> tuple[str, str]:
+    """Extract time from a title like 'Rouen Basket - Quimper (20h)' or 'Event (20h30)'.
+
+    Returns (clean_title, time_str) where time_str is 'HH:MM', or (title, '') if not found.
+    """
+    m = _TIME_IN_TITLE_RE.search(title)
+    if m:
+        hours = int(m.group(1))
+        minutes = m.group(2) or "00"
+        time_str = f"{hours:02d}:{minutes}"
+        return title[: m.start()].strip(), time_str
+    return title, ""
+
+
 def _parse_gcal_event(item: dict, category_label: str) -> RawEvent | None:
     """Parse a Google Calendar event into a RawEvent."""
     title = item.get("summary", "").strip()
@@ -128,6 +148,13 @@ def _parse_gcal_event(item: dict, category_label: str) -> RawEvent | None:
         dt_str = start["dateTime"]
         if "T" in dt_str:
             time_str = dt_str.split("T")[1][:5]
+
+    # Sports events are published as all-day events in Google Calendar, but carry
+    # the actual time in the title as "(HHh)" or "(HHhMM)". Extract it and fix date_end.
+    if category_label == _SPORTS_CATEGORY and "date" in start:
+        title, time_str = _extract_time_from_title(title)
+        # Google Calendar sets end to J+1 for all-day events; use date_start instead.
+        date_end = date_start
 
     # Description and location
     description = item.get("description", "").strip()
