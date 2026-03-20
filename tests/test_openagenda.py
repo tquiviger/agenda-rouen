@@ -29,6 +29,10 @@ SAMPLE_EVENT = {
         "city": "Rouen",
     },
     "image": {"base": "https://cdn.openagenda.com/main/abc123.jpg"},
+    "registration": [
+        {"type": "link", "value": "https://bibliotheques.rouen.fr/agenda/albumine-collodion"},
+    ],
+    "links": [],
 }
 
 SAMPLE_API_RESPONSE = {
@@ -89,6 +93,41 @@ class TestParseEvent:
         assert "Rouen" in event.address
         assert event.source == "test"
         assert "cdn.openagenda.com" in event.image_url
+
+    def test_url_from_registration(self) -> None:
+        """URL comes from registration[].value when type is 'link'."""
+        event = _parse_event(SAMPLE_EVENT, source="test")
+        assert event is not None
+        assert event.url == "https://bibliotheques.rouen.fr/agenda/albumine-collodion"
+
+    def test_url_from_links_fallback(self) -> None:
+        """Falls back to links[].link when registration is empty."""
+        raw = {
+            **SAMPLE_EVENT,
+            "registration": [],
+            "links": [{"link": "https://www.metropole-rouen-normandie.fr/event/42"}],
+        }
+        event = _parse_event(raw, source="test")
+        assert event is not None
+        assert event.url == "https://www.metropole-rouen-normandie.fr/event/42"
+
+    def test_url_empty_when_no_registration_no_links(self) -> None:
+        """URL is empty when neither registration nor links are present."""
+        raw = {**SAMPLE_EVENT, "registration": [], "links": []}
+        event = _parse_event(raw, source="test")
+        assert event is not None
+        assert event.url == ""
+
+    def test_url_ignores_non_link_registration_types(self) -> None:
+        """registration entries with type != 'link' (e.g. 'email') are ignored."""
+        raw = {
+            **SAMPLE_EVENT,
+            "registration": [{"type": "email", "value": "contact@example.com"}],
+            "links": [{"link": "https://fallback.example.com"}],
+        }
+        event = _parse_event(raw, source="test")
+        assert event is not None
+        assert event.url == "https://fallback.example.com"
 
     def test_parse_event_no_title(self) -> None:
         raw = {**SAMPLE_EVENT, "title": {"fr": ""}}

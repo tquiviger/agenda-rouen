@@ -112,10 +112,17 @@ def _parse_event(raw: dict, source: str) -> RawEvent | None:
     image_base = image.get("base", "")
     image_url = image_base if image_base and not image_base.endswith("/main/") else ""
 
-    # Build canonical URL
-    slug = raw.get("slug", "")
-    uid = raw.get("uid", "")
-    event_url = f"https://openagenda.com/events/{slug}-{uid}" if slug else ""
+    # URL: prefer registration link, then links[], fall back to empty
+    event_url = ""
+    for reg in raw.get("registration", []):
+        if reg.get("type") == "link" and reg.get("value"):
+            event_url = reg["value"]
+            break
+    if not event_url:
+        for link in raw.get("links", []):
+            if link.get("link"):
+                event_url = link["link"]
+                break
 
     # Description
     description = _get_fr(raw.get("description"))
