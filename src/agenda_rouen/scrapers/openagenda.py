@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 # OpenAgenda v2 JSON export — no API key required
 _BASE_URL = "https://openagenda.com/agendas/{uid}/events.v2.json"
 _PAGE_SIZE = 100
+_MAX_PAGES = 50  # Safety limit to prevent infinite pagination loops
 
 # Known Rouen-area agendas
 AGENDAS: dict[str, int] = {
@@ -45,7 +46,7 @@ class OpenAgendaScraper(BaseScraper):
         time_min = now.strftime("%Y-%m-%dT%H:%M:%S%z")
         time_max = (now + timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%S%z")
 
-        while True:
+        for page in range(1, _MAX_PAGES + 1):
             params: list[tuple[str, str | int]] = [
                 ("detailed", 1),
                 ("limit", _PAGE_SIZE),
@@ -79,6 +80,10 @@ class OpenAgendaScraper(BaseScraper):
             after = data.get("sort")
             if not after:
                 break
+        else:
+            logger.warning(
+                "OpenAgenda [%s]: hit max page limit (%d), stopping", self.name, _MAX_PAGES,
+            )
 
         logger.info("OpenAgenda [%s]: fetched %d events", self.name, len(events))
         return events
