@@ -99,7 +99,12 @@ class RouenOnEstScraper(BaseScraper):
                 break
             resp.raise_for_status()
 
-            data = resp.json()
+            try:
+                data = resp.json()
+            except Exception:
+                logger.error("RouenOnEst [%s]: invalid JSON response", category_label)
+                break
+
             for item in data.get("items", []):
                 event = _parse_gcal_event(item, category_label)
                 if event is not None:

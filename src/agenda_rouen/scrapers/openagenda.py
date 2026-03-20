@@ -60,7 +60,11 @@ class OpenAgendaScraper(BaseScraper):
             url = _BASE_URL.format(uid=self._uid)
             resp = await self._client.get(url, params=params)
             resp.raise_for_status()
-            data = resp.json()
+            try:
+                data = resp.json()
+            except Exception:
+                logger.error("OpenAgenda [%s]: invalid JSON response", self.name)
+                break
 
             for raw in data.get("events", []):
                 event = _parse_event(raw, source=self.name)
