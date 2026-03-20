@@ -4,26 +4,26 @@ from __future__ import annotations
 
 import json
 from collections import defaultdict
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-import boto3
+import boto3  # type: ignore[import-untyped]
 
 if TYPE_CHECKING:
     from agenda_rouen.models import Event
 
 
-def _group_by_date(events: list[Event]) -> dict[str, list[dict]]:
+def _group_by_date(events: list[Event]) -> dict[str, list[dict[str, Any]]]:
     """Group events by start date."""
-    by_date: dict[str, list[dict]] = defaultdict(list)
+    by_date: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for event in events:
         key = event.date_start.isoformat()
         by_date[key].append(event.model_dump(mode="json"))
     return dict(by_date)
 
 
-def _group_by_category(events: list[Event]) -> dict[str, list[dict]]:
+def _group_by_category(events: list[Event]) -> dict[str, list[dict[str, Any]]]:
     """Group events by category."""
-    by_cat: dict[str, list[dict]] = defaultdict(list)
+    by_cat: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for event in events:
         by_cat[event.category.value].append(event.model_dump(mode="json"))
     return dict(by_cat)

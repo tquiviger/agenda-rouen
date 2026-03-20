@@ -10,6 +10,9 @@ import logging
 import os
 import re
 from datetime import UTC, date, datetime, timedelta
+from typing import Any
+
+import httpx
 
 from agenda_rouen.models import RawEvent
 from agenda_rouen.scrapers.base import BaseScraper
@@ -40,8 +43,8 @@ CALENDARS: dict[str, str] = {
 class RouenOnEstScraper(BaseScraper):
     name = "rouen_on_est"
 
-    def __init__(self, **kwargs: object) -> None:
-        super().__init__(**kwargs)
+    def __init__(self, client: httpx.AsyncClient | None = None) -> None:
+        super().__init__(client=client)
         self._api_key = os.environ.get("GOOGLE_CALENDAR_API_KEY", "")
 
     async def scrape(self) -> list[RawEvent]:
@@ -132,7 +135,7 @@ def _extract_time_from_title(title: str) -> tuple[str, str]:
     return title, ""
 
 
-def _parse_gcal_event(item: dict, category_label: str) -> RawEvent | None:
+def _parse_gcal_event(item: dict[str, Any], category_label: str) -> RawEvent | None:
     """Parse a Google Calendar event into a RawEvent."""
     title = item.get("summary", "").strip()
     if not title:
@@ -181,7 +184,7 @@ def _parse_gcal_event(item: dict, category_label: str) -> RawEvent | None:
     )
 
 
-def _extract_date(dt_obj: dict) -> date | None:
+def _extract_date(dt_obj: dict[str, Any]) -> date | None:
     """Extract a date from a Google Calendar start/end object."""
     # All-day events use "date", timed events use "dateTime"
     if "date" in dt_obj:

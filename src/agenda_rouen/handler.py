@@ -8,7 +8,7 @@ import os
 import time
 from typing import Any
 
-import boto3
+import boto3  # type: ignore[import-untyped]
 
 from agenda_rouen.classifier.llm import classify
 from agenda_rouen.models import RawEvent

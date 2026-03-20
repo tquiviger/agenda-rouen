@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, date, datetime, timedelta
+from typing import Any
+
+import httpx
 
 from agenda_rouen.models import RawEvent
 from agenda_rouen.scrapers.base import BaseScraper
@@ -32,9 +35,9 @@ class OpenAgendaScraper(BaseScraper):
         self,
         agenda_name: str,
         agenda_uid: int,
-        **kwargs: object,
+        client: httpx.AsyncClient | None = None,
     ) -> None:
-        super().__init__(**kwargs)
+        super().__init__(client=client)
         self.name = agenda_name
         self._uid = agenda_uid
 
@@ -89,7 +92,7 @@ class OpenAgendaScraper(BaseScraper):
         return events
 
 
-def _parse_event(raw: dict, source: str) -> RawEvent | None:
+def _parse_event(raw: dict[str, Any], source: str) -> RawEvent | None:
     """Parse a single OpenAgenda event into a RawEvent."""
     title = _get_fr(raw.get("title"))
     if not title:
@@ -154,7 +157,7 @@ def _parse_event(raw: dict, source: str) -> RawEvent | None:
     )
 
 
-def _get_fr(value: dict | str | None) -> str:
+def _get_fr(value: dict[str, str] | str | None) -> str:
     """Extract French text from an OpenAgenda multilingual field."""
     if value is None:
         return ""
