@@ -18,3 +18,7 @@ wheels/
 # Frontend
 frontend/node_modules/
 frontend/.next/
+
+# Local dev
+.claude/
+TODO.md
