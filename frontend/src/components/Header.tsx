@@ -6,20 +6,13 @@ export default function Header({ eventCount }: { eventCount: number }) {
   const { dark, toggle } = useTheme();
 
   return (
-    <header className="flex items-center justify-between">
-      <div className="space-y-0.5">
-        <h1 className="font-display text-3xl sm:text-4xl tracking-tight" style={{ color: "var(--foreground)" }}>
-          <span style={{ color: "var(--accent)" }}>Agenda</span> Rouen
-        </h1>
-        <p className="text-sm sm:text-base" style={{ color: "var(--muted)" }}>
-          {eventCount} événement{eventCount > 1 ? "s" : ""} à découvrir
-        </p>
-      </div>
+    <header className="relative flex flex-col items-center py-8 sm:py-12">
 
+      {/* Theme toggle — absolute top-right */}
       <button
         onClick={toggle}
         aria-label="Changer de thème"
-        className="rounded-full p-2.5 transition-colors"
+        className="absolute right-0 top-0 rounded-full p-2.5 transition-colors"
         style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
       >
         {dark ? (
@@ -32,6 +25,42 @@ export default function Header({ eventCount }: { eventCount: number }) {
           </svg>
         )}
       </button>
+
+      {/* Wordmark */}
+      <div className="flex flex-col items-center gap-1 select-none">
+        {/* "AGENDA" — small tracked label in accent */}
+        <span
+          className="font-sans text-xs sm:text-sm font-semibold tracking-[0.35em] uppercase"
+          style={{ color: "var(--accent)" }}
+        >
+          Agenda
+        </span>
+
+        {/* Decorative rule */}
+        <div className="flex items-center gap-3 w-full">
+          <span className="flex-1 h-px" style={{ background: "var(--border)" }} />
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
+            <rect x="5" y="0.5" width="6.36" height="6.36" transform="rotate(45 5 5)" fill="var(--accent)" opacity="0.7" />
+          </svg>
+          <span className="flex-1 h-px" style={{ background: "var(--border)" }} />
+        </div>
+
+        {/* "ROUEN" — large serif wordmark */}
+        <h1
+          className="font-display leading-none tracking-tight text-6xl sm:text-8xl"
+          style={{ color: "var(--foreground)" }}
+        >
+          Rouen
+        </h1>
+
+        {/* Event count subtitle */}
+        <p
+          className="mt-2 font-sans text-xs sm:text-sm tracking-[0.15em] uppercase"
+          style={{ color: "var(--muted)" }}
+        >
+          {eventCount} événement{eventCount !== 1 ? "s" : ""} à découvrir
+        </p>
+      </div>
     </header>
   );
 }
