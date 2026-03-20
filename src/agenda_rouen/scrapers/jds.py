@@ -1,4 +1,9 @@
-"""Scraper for jds.fr (Journal des Spectacles) — Rouen agenda."""
+"""Scraper for jds.fr (Journal des Spectacles) — Rouen agenda.
+
+Strategy: fetch one page per day for the next 30 days using JDS per-day URLs
+(e.g. /agenda-du-jour/mercredi-18-mars-2026-18-3-2026_JPJ). Multi-day events
+that appear on several day pages are deduplicated by their event URL.
+"""
 
 from __future__ import annotations
 
@@ -13,8 +18,34 @@ from agenda_rouen.scrapers.base import BaseScraper
 
 logger = logging.getLogger(__name__)
 
-_BASE_URL = "https://www.jds.fr/rouen/agenda/"
-_MAX_PAGES = 10
+_BASE_DAY_URL = "https://www.jds.fr/rouen/agenda/agenda-du-jour"
+_WINDOW_DAYS = 30
+
+_FR_WEEKDAYS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
+_FR_MONTHS = {
+    1: "janvier",
+    2: "février",
+    3: "mars",
+    4: "avril",
+    5: "mai",
+    6: "juin",
+    7: "juillet",
+    8: "août",
+    9: "septembre",
+    10: "octobre",
+    11: "novembre",
+    12: "décembre",
+}
+
+
+def _day_url(d: date) -> str:
+    """Build the JDS per-day URL for a given date.
+
+    Example: date(2026, 3, 21) → .../samedi-21-mars-2026-21-3-2026_JPJ
+    """
+    weekday = _FR_WEEKDAYS[d.weekday()]
+    month = _FR_MONTHS[d.month]
+    return f"{_BASE_DAY_URL}/{weekday}-{d.day}-{month}-{d.year}-{d.day}-{d.month}-{d.year}_JPJ"
 
 
 class JdsScraper(BaseScraper):
@@ -22,35 +53,36 @@ class JdsScraper(BaseScraper):
 
     async def scrape(self) -> list[RawEvent]:
         events: list[RawEvent] = []
+        # Deduplicate multi-day events that appear on every day page in their range
+        seen: set[str] = set()
         today = date.today()
-        cutoff = today + timedelta(days=30)
 
-        for page in range(1, _MAX_PAGES + 1):
-            url = f"{_BASE_URL}?&page={page}"
+        for offset in range(_WINDOW_DAYS):
+            day = today + timedelta(days=offset)
+            url = _day_url(day)
             resp = await self._client.get(url)
+
+            if resp.status_code == 404:
+                logger.debug("JDS: no page for %s", day.isoformat())
+                continue
             resp.raise_for_status()
 
             soup = BeautifulSoup(resp.text, "lxml")
             cards = soup.select("ul.list-articles-v2 > li.col-12[data-view-id]")
 
-            if not cards:
-                break
-
-            kept = 0
+            day_count = 0
             for card in cards:
                 event = _parse_card(card)
                 if event is None:
                     continue
-                if event.date_start > cutoff:
+                dedup_key = event.url or f"{event.title}|{event.date_start}"
+                if dedup_key in seen:
                     continue
+                seen.add(dedup_key)
                 events.append(event)
-                kept += 1
+                day_count += 1
 
-            logger.info("JDS page %d: %d/%d events in window", page, kept, len(cards))
-
-            # Stop paginating when no events on the page fall within the window
-            if kept == 0:
-                break
+            logger.info("JDS %s: %d new events", day.isoformat(), day_count)
 
         logger.info("JDS total: %d events", len(events))
         return events

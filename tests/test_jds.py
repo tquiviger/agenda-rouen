@@ -6,12 +6,16 @@ from unittest.mock import patch
 import httpx
 import pytest
 
-from agenda_rouen.scrapers.jds import JdsScraper, _parse_date_text, _parse_fr_date
+from agenda_rouen.scrapers.jds import (
+    JdsScraper,
+    _day_url,
+    _parse_date_text,
+    _parse_fr_date,
+)
 
-# Use a fixed "today" so tests are deterministic
+# Use a fixed "today" so tests are deterministic (Wednesday March 18, 2026)
 FAKE_TODAY = date(2026, 3, 18)
 WITHIN_WINDOW = FAKE_TODAY + timedelta(days=5)  # 2026-03-23
-BEYOND_WINDOW = FAKE_TODAY + timedelta(days=45)  # 2026-05-02
 
 
 def _fmt(d: date) -> str:
@@ -54,6 +58,30 @@ def _make_html(*events_data: tuple[str, str, str, str]) -> str:
 EMPTY_HTML = "<html><body><ul class='list-articles-v2'></ul></body></html>"
 
 
+class TestDayUrl:
+    def test_known_wednesday(self) -> None:
+        # March 18, 2026 is a Wednesday (weekday=2)
+        url = _day_url(date(2026, 3, 18))
+        assert url == (
+            "https://www.jds.fr/rouen/agenda/agenda-du-jour"
+            "/mercredi-18-mars-2026-18-3-2026_JPJ"
+        )
+
+    def test_saturday(self) -> None:
+        # March 21, 2026 is a Saturday (weekday=5)
+        url = _day_url(date(2026, 3, 21))
+        assert "samedi-21-mars-2026-21-3-2026_JPJ" in url
+
+    def test_month_no_leading_zero(self) -> None:
+        # April → month number 4, no leading zero
+        url = _day_url(date(2026, 4, 1))
+        assert "1-avril-2026-1-4-2026_JPJ" in url
+
+    def test_august_uses_aout(self) -> None:
+        url = _day_url(date(2026, 8, 15))
+        assert "août" in url
+
+
 class TestDateParsing:
     def test_single_date(self) -> None:
         start, end = _parse_date_text("Le 24/03/2026")
@@ -79,8 +107,32 @@ class TestDateParsing:
 
 class TestJdsScraper:
     @pytest.mark.asyncio
+    async def test_scrape_fetches_30_day_urls(self) -> None:
+        """Exactly 30 per-day URLs are requested."""
+        request_urls: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            request_urls.append(str(request.url))
+            return httpx.Response(200, text=EMPTY_HTML)
+
+        transport = httpx.MockTransport(handler)
+        client = httpx.AsyncClient(transport=transport)
+
+        with patch("agenda_rouen.scrapers.jds.date") as mock_date:
+            mock_date.today.return_value = FAKE_TODAY
+            mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
+            scraper = JdsScraper(client=client)
+            async with scraper:
+                await scraper.scrape()
+
+        assert len(request_urls) == 30
+        assert all("agenda-du-jour" in url for url in request_urls)
+        # First URL must be today
+        assert "mercredi-18-mars-2026" in request_urls[0]
+
+    @pytest.mark.asyncio
     async def test_scrape_parses_events(self) -> None:
-        """Events within the 30-day window are returned."""
+        """Events on day pages are returned."""
         html = _make_html(
             ("Concert Rock", f"Le {_fmt(WITHIN_WINDOW)}", "Le 106", "1001"),
             ("Match Rugby", f"Le {_fmt(WITHIN_WINDOW)}", "Stade Diochon", "1002"),
@@ -106,24 +158,42 @@ class TestJdsScraper:
 
         assert len(events) == 2
         assert events[0].title == "Concert Rock"
-        assert events[0].date_start == WITHIN_WINDOW
         assert events[0].source == "jds"
         assert events[1].title == "Match Rugby"
 
     @pytest.mark.asyncio
-    async def test_scrape_filters_events_beyond_window(self) -> None:
-        """Events beyond the 30-day cutoff are excluded."""
-        html = _make_html(
-            ("Concert OK", f"Le {_fmt(WITHIN_WINDOW)}", "Le 106", "2001"),
-            ("Concert Trop Loin", f"Le {_fmt(BEYOND_WINDOW)}", "Le 106", "2002"),
+    async def test_scrape_deduplicates_multiday_events(self) -> None:
+        """A multi-day event appearing on every day page is counted only once."""
+        html_with_event = _make_html(
+            ("Festival XYZ", f"Du {_fmt(FAKE_TODAY)} au {_fmt(WITHIN_WINDOW)}", "Parc", "event_42"),
         )
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, text=html_with_event)
+
+        transport = httpx.MockTransport(handler)
+        client = httpx.AsyncClient(transport=transport)
+
+        with patch("agenda_rouen.scrapers.jds.date") as mock_date:
+            mock_date.today.return_value = FAKE_TODAY
+            mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
+            scraper = JdsScraper(client=client)
+            async with scraper:
+                events = await scraper.scrape()
+
+        assert len(events) == 1
+        assert events[0].title == "Festival XYZ"
+
+    @pytest.mark.asyncio
+    async def test_scrape_skips_404_days(self) -> None:
+        """404 responses are skipped and do not raise an error."""
         call_count = 0
 
         def handler(request: httpx.Request) -> httpx.Response:
             nonlocal call_count
             call_count += 1
             if call_count == 1:
-                return httpx.Response(200, text=html)
+                return httpx.Response(404, text="Not Found")
             return httpx.Response(200, text=EMPTY_HTML)
 
         transport = httpx.MockTransport(handler)
@@ -136,39 +206,6 @@ class TestJdsScraper:
             async with scraper:
                 events = await scraper.scrape()
 
-        assert len(events) == 1
-        assert events[0].title == "Concert OK"
-
-    @pytest.mark.asyncio
-    async def test_scrape_stops_when_page_all_beyond_window(self) -> None:
-        """Pagination stops when an entire page has no events in window."""
-        html_page1 = _make_html(
-            ("Concert OK", f"Le {_fmt(WITHIN_WINDOW)}", "Le 106", "3001"),
-        )
-        html_page2 = _make_html(
-            ("Futur 1", f"Le {_fmt(BEYOND_WINDOW)}", "X", "3002"),
-            ("Futur 2", f"Le {_fmt(BEYOND_WINDOW)}", "Y", "3003"),
-        )
-        pages = [html_page1, html_page2]
-        call_count = 0
-
-        def handler(request: httpx.Request) -> httpx.Response:
-            nonlocal call_count
-            call_count += 1
-            if call_count <= len(pages):
-                return httpx.Response(200, text=pages[call_count - 1])
-            return httpx.Response(200, text=EMPTY_HTML)
-
-        transport = httpx.MockTransport(handler)
-        client = httpx.AsyncClient(transport=transport)
-
-        with patch("agenda_rouen.scrapers.jds.date") as mock_date:
-            mock_date.today.return_value = FAKE_TODAY
-            mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
-            scraper = JdsScraper(client=client)
-            async with scraper:
-                events = await scraper.scrape()
-
-        assert len(events) == 1
-        # Should have stopped after page 2, not fetching page 3
-        assert call_count == 2
+        # All 30 URLs attempted, first returned 404 (skipped), rest returned empty
+        assert call_count == 30
+        assert events == []
