@@ -7,9 +7,11 @@ import hashlib
 import json
 import logging
 import os
+import time
 from datetime import UTC, datetime
 
 from google import genai
+from google.genai import errors as genai_errors
 
 from agenda_rouen.models import Category, Event, RawEvent
 
@@ -97,8 +99,15 @@ def _event_id(title: str, date_start: str, location: str) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 
+_GEMINI_MAX_RETRIES = 2
+_GEMINI_BACKOFF_BASE = 5.0  # seconds
+
+
 def _get_client() -> genai.Client:
-    return genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise ValueError("GEMINI_API_KEY environment variable is not set")
+    return genai.Client(api_key=api_key)
 
 
 async def classify(
@@ -229,6 +238,47 @@ async def classify(
     return events
 
 
+def _gemini_call(
+    client: genai.Client,
+    model: str,
+    system: str,
+    content: str,
+    max_output_tokens: int = 4096,
+) -> dict[str, str]:
+    """Call Gemini with retry on 429 / RESOURCE_EXHAUSTED and JSON validation."""
+    for attempt in range(_GEMINI_MAX_RETRIES + 1):
+        try:
+            response = client.models.generate_content(
+                model=model,
+                contents=content,
+                config=genai.types.GenerateContentConfig(
+                    system_instruction=system,
+                    max_output_tokens=max_output_tokens,
+                    temperature=0.0,
+                    response_mime_type="application/json",
+                ),
+            )
+            try:
+                return json.loads(response.text)
+            except (json.JSONDecodeError, TypeError) as exc:
+                logger.error("Gemini returned invalid JSON: %s", response.text[:200])
+                raise ValueError("Invalid JSON from Gemini") from exc
+
+        except genai_errors.ClientError as exc:
+            if exc.code == 429 and attempt < _GEMINI_MAX_RETRIES:
+                wait = _GEMINI_BACKOFF_BASE * (2 ** attempt)
+                logger.warning(
+                    "Gemini 429 RESOURCE_EXHAUSTED, retrying in %.0fs (%d/%d)",
+                    wait, attempt + 1, _GEMINI_MAX_RETRIES,
+                )
+                time.sleep(wait)
+                continue
+            raise
+
+    # Unreachable, but makes the type checker happy
+    raise RuntimeError("Exhausted retries")
+
+
 def _classify_categories(
     client: genai.Client,
     raw_categories: set[str],
@@ -238,19 +288,7 @@ def _classify_categories(
     """Ask Gemini to map raw category names to our taxonomy. Single API call."""
     system = _SYSTEM_PROMPT.format(categories=categories_str)
     content = json.dumps(sorted(raw_categories), ensure_ascii=False)
-
-    response = client.models.generate_content(
-        model=model,
-        contents=content,
-        config=genai.types.GenerateContentConfig(
-            system_instruction=system,
-            max_output_tokens=4096,
-            temperature=0.0,
-            response_mime_type="application/json",
-        ),
-    )
-
-    return json.loads(response.text)
+    return _gemini_call(client, model, system, content)
 
 
 def _classify_titles(
@@ -262,16 +300,4 @@ def _classify_titles(
     """Ask Gemini to classify event titles into our taxonomy."""
     system = _TITLE_CLASSIFY_PROMPT.format(categories=categories_str)
     content = json.dumps(titles, ensure_ascii=False)
-
-    response = client.models.generate_content(
-        model=model,
-        contents=content,
-        config=genai.types.GenerateContentConfig(
-            system_instruction=system,
-            max_output_tokens=16384,
-            temperature=0.0,
-            response_mime_type="application/json",
-        ),
-    )
-
-    return json.loads(response.text)
+    return _gemini_call(client, model, system, content, max_output_tokens=16384)
