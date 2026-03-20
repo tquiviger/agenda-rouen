@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTheme } from "@/components/ThemeProvider";
 import { formatDateRange, getTimeBadge } from "@/lib/filters";
 import { CATEGORY_CONFIG, type Event } from "@/lib/types";
@@ -12,18 +12,52 @@ interface Props {
 
 export default function EventModal({ event, onClose }: Props) {
   const [imgError, setImgError] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     setImgError(false);
   }, [event]);
 
+  // Save and restore focus
   useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [onClose]);
+    if (event) {
+      previousFocusRef.current = document.activeElement as HTMLElement;
+      // Move focus into the modal after render
+      requestAnimationFrame(() => dialogRef.current?.focus());
+    } else if (previousFocusRef.current) {
+      previousFocusRef.current.focus();
+      previousFocusRef.current = null;
+    }
+  }, [event]);
+
+  // Focus trap: Tab/Shift+Tab cycles within modal, Escape closes
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab" || !dialogRef.current) return;
+
+      const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    },
+    [onClose]
+  );
 
   useEffect(() => {
     if (event) {
@@ -43,7 +77,13 @@ export default function EventModal({ event, onClose }: Props) {
   const timeBadge = getTimeBadge(event.date_start);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={event.title}
+      onKeyDown={handleKeyDown}
+    >
       {/* Backdrop */}
       <div
         className="absolute inset-0 backdrop-blur-sm animate-backdrop"
@@ -51,9 +91,11 @@ export default function EventModal({ event, onClose }: Props) {
         onClick={onClose}
       />
 
-      {/* Modal */}
+      {/* Modal panel */}
       <div
-        className="relative z-10 w-full sm:max-w-lg max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl shadow-2xl animate-slide-up"
+        ref={dialogRef}
+        tabIndex={-1}
+        className="relative z-10 w-full sm:max-w-lg max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl shadow-2xl animate-slide-up outline-none"
         style={{ background: "var(--surface)" }}
       >
         {/* Image header */}
@@ -88,6 +130,7 @@ export default function EventModal({ event, onClose }: Props) {
         {/* Close button */}
         <button
           onClick={onClose}
+          aria-label="Fermer"
           className="absolute top-3 right-3 rounded-full p-2 shadow-md transition-colors backdrop-blur-md"
           style={{ background: "rgba(255,255,255,0.9)" }}
         >
