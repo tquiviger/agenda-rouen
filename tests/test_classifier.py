@@ -91,6 +91,32 @@ class TestDedup:
         assert events[0].description == "A much longer description"
 
 
+class TestSourceOverrides:
+    @pytest.mark.asyncio
+    async def test_bibliotheques_source_forced_to_workshop(self) -> None:
+        """Events from openagenda_bibliotheques are always categorized as ateliers."""
+        raw = [_make_raw(source="openagenda_bibliotheques", raw_category="Culture & Expos")]
+        events = await classify(raw)
+        assert len(events) == 1
+        assert events[0].category == "ateliers"
+
+    @pytest.mark.asyncio
+    async def test_bibliotheques_no_raw_category_still_workshop(self) -> None:
+        """Even without raw_category, bibliotheques events are forced to ateliers."""
+        raw = [_make_raw(source="openagenda_bibliotheques", raw_category="")]
+        events = await classify(raw)
+        assert len(events) == 1
+        assert events[0].category == "ateliers"
+
+    @pytest.mark.asyncio
+    async def test_other_source_not_overridden(self) -> None:
+        """Source override only applies to openagenda_bibliotheques."""
+        raw = [_make_raw(source="openagenda_metropole", raw_category="Concerts à Rouen")]
+        events = await classify(raw)
+        assert len(events) == 1
+        assert events[0].category == "musique"
+
+
 class TestExcludedCategories:
     @pytest.mark.asyncio
     async def test_conferences_excluded(self) -> None:

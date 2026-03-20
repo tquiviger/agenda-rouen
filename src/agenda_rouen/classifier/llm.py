@@ -47,6 +47,11 @@ et les valeurs sont les catégories de notre taxonomie.
 
 _TITLE_BATCH_SIZE = 100
 
+# Sources whose events must always be assigned a fixed category, regardless of raw_category.
+_SOURCE_CATEGORY_OVERRIDES: dict[str, str] = {
+    "openagenda_bibliotheques": Category.WORKSHOP.value,
+}
+
 # Static fallback mapping for known raw categories (avoids LLM call when quota is exhausted).
 # None means the category should be excluded (events will be dropped).
 _STATIC_CAT_MAPPING: dict[str, str | None] = {
@@ -173,8 +178,10 @@ async def classify(
             continue
         seen.add(dedup_key)
 
-        # Resolve category — None means excluded
-        if raw.raw_category:
+        # Source-level override takes priority over any raw_category or title mapping
+        if raw.source in _SOURCE_CATEGORY_OVERRIDES:
+            cat_value = _SOURCE_CATEGORY_OVERRIDES[raw.source]
+        elif raw.raw_category:
             cat_value = cat_mapping.get(raw.raw_category, Category.OTHER.value)
         else:
             cat_value = title_mapping.get(raw.title, Category.OTHER.value)
