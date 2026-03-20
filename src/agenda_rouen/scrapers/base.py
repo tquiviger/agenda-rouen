@@ -17,6 +17,7 @@ class BaseScraper(abc.ABC):
     def __init__(self, client: httpx.AsyncClient | None = None) -> None:
         self._client = client or httpx.AsyncClient(
             timeout=30,
+            follow_redirects=True,
             headers={"User-Agent": "AgendaRouen/0.1 (+https://github.com/agenda-rouen)"},
         )
 
