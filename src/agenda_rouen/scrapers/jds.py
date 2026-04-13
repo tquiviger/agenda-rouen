@@ -14,7 +14,7 @@ import logging
 import re
 from datetime import date, timedelta
 
-from bs4 import BeautifulSoup, Tag
+from scrapling import Selector
 
 from agenda_rouen.models import RawEvent
 from agenda_rouen.scrapers.base import BaseScraper
@@ -88,8 +88,8 @@ class JdsScraper(BaseScraper):
                 return []
             resp.raise_for_status()
 
-        soup = BeautifulSoup(resp.text, "lxml")
-        cards = soup.select("ul.list-articles-v2 > li.col-12[data-view-id]")
+        page = Selector(resp.text)
+        cards = page.css("ul.list-articles-v2 > li.col-12[data-view-id]")
 
         events: list[RawEvent] = []
         for card in cards:
@@ -101,43 +101,43 @@ class JdsScraper(BaseScraper):
         return events
 
 
-def _parse_card(card: Tag) -> RawEvent | None:
+def _parse_card(card: Selector) -> RawEvent | None:
     """Parse a single JDS event card."""
     # Title + URL
-    title_link = card.select_one("a.d-block.titre")
+    title_link = card.css("a.d-block.titre").first
     if not title_link:
         return None
 
-    title_span = title_link.select_one("span")
-    title = title_span.get_text(strip=True) if title_span else title_link.get_text(strip=True)
-    event_url = title_link.get("href", "")
+    title_span = title_link.css("span").first
+    title = (title_span.text.strip() if title_span else title_link.text.strip())
+    event_url = title_link.attrib.get("href", "")
 
     if not title or not event_url:
         return None
 
     # Category
-    cat_el = card.select_one("div.rubriques a")
-    raw_category = cat_el.get_text(strip=True) if cat_el else ""
+    cat_el = card.css("div.rubriques a").first
+    raw_category = cat_el.text.strip() if cat_el else ""
 
     # Date
-    date_el = card.select_one("span.font-size-14.text-gray-700.lh-sm")
-    date_text = date_el.get_text(strip=True) if date_el else ""
+    date_el = card.css("span.font-size-14.text-gray-700.lh-sm").first
+    date_text = date_el.text.strip() if date_el else ""
     date_start, date_end = _parse_date_text(date_text)
 
     if date_start is None:
         return None
 
     # Location (can be <a class="lieu"> or <span class="lieu">)
-    loc_el = card.select_one(".lieu")
-    location = loc_el.get_text(strip=True) if loc_el else ""
+    loc_el = card.css(".lieu").first
+    location = loc_el.text.strip() if loc_el else ""
 
     # Image
-    img_el = card.select_one("div.pave-image img")
-    image_url = img_el.get("src", "") if img_el else ""
+    img_el = card.css("div.pave-image img").first
+    image_url = img_el.attrib.get("src", "") if img_el else ""
 
     # Description
-    desc_el = card.select_one("span.description")
-    description = desc_el.get_text(strip=True) if desc_el else ""
+    desc_el = card.css("span.description").first
+    description = desc_el.text.strip() if desc_el else ""
 
     return RawEvent(
         title=title,

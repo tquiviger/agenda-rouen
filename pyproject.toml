@@ -9,12 +9,11 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "httpx>=0.28",
-    "beautifulsoup4>=4.13",
-    "lxml>=5.3",
     "pydantic>=2.11",
     "boto3>=1.38",
     "python-dotenv>=1.2.2",
     "google-genai>=1.68.0",
+    "scrapling>=0.4.5",
 ]
 
 [project.optional-dependencies]

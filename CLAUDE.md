@@ -36,7 +36,7 @@ This is a **fully static architecture** — no database, no API server. The Lamb
 
 - **`src/agenda_rouen/scrapers/`** — One scraper per source site, all inherit `BaseScraper` (async, httpx-based). Each must implement `async scrape() -> list[RawEvent]`.
 - **`src/agenda_rouen/scrapers/openagenda.py`** — Generic scraper for OpenAgenda v2 JSON API (no API key needed). Handles 3 agendas: Métropole (UID 11362982), Ville de Rouen (11174431), Bibliothèques (8049538). Cursor-based pagination via `after[]` params. Time-filtered via `timings[gte]`/`timings[lte]`.
-- **`src/agenda_rouen/scrapers/jds.py`** — HTML scraper for jds.fr. Parses `ul.list-articles-v2 > li` cards with BeautifulSoup. Page-based pagination (`?&page=N`). Client-side date filtering with early pagination stop.
+- **`src/agenda_rouen/scrapers/jds.py`** — HTML scraper for jds.fr. Parses `ul.list-articles-v2 > li` cards with Scrapling. Page-based pagination (`?&page=N`). Client-side date filtering with early pagination stop.
 - **`src/agenda_rouen/scrapers/rouen_on_est.py`** — Google Calendar API scraper. Fetches 5 public calendars (Grands événements, Animations & Spectacles, Culture & Expos, Dates majeures, Sports & Compétitions). Requires `GOOGLE_CALENDAR_API_KEY`.
 - **`src/agenda_rouen/classifier/llm.py`** — Classifies events via Gemini 2.5 Flash. Maps raw categories to our unified taxonomy using a static mapping with LLM fallback for unknown categories. Deduplicates events by normalized title + date.
 - **`src/agenda_rouen/storage/s3.py`** — Publishes classified events as static JSON files to S3 (`events.json`, `dates/{date}.json`, `categories/{cat}.json`).
@@ -62,7 +62,7 @@ Next.js 16 + Tailwind CSS PWA. Consumes static JSON from S3/CloudFront (currentl
 | `openagenda_metropole` | OpenAgenda (Métropole Rouen) | JSON API v2 (UID 11362982) | Active |
 | `openagenda_rouen` | OpenAgenda (Ville de Rouen) | JSON API v2 (UID 11174431) | Active |
 | `openagenda_bibliotheques` | OpenAgenda (Bibliothèques) | JSON API v2 (UID 8049538) | Active |
-| `jds` | jds.fr | HTML scraping (BeautifulSoup) | Active |
+| `jds` | jds.fr | HTML scraping (Scrapling) | Active |
 | `rouen_on_est` | rouenonest.fr | Google Calendar API (5 public calendars) | Active |
 | `shotgun` | shotgun.live | Blocked by Vercel bot protection | Deferred |
 
@@ -81,7 +81,7 @@ Categories defined in `Category` enum: `musique`, `spectacles`, `sport`, `exposi
 
 ## Conventions
 
-- All scrapers are **async** (httpx + BeautifulSoup/lxml).
+- All scrapers are **async** (httpx + Scrapling for HTML parsing).
 - All scrapers fetch events on a **30-day rolling window** from today.
 - Scraper tests use `httpx.MockTransport` to mock HTTP responses.
 - Storage tests use **moto** for S3 mocking — no real AWS calls in tests.

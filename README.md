@@ -83,7 +83,7 @@ Agenda Rouen agrège les événements de **5 sources locales**, les **classifie 
 | **Métropole Rouen Normandie** | OpenAgenda API v2 | UID `11362982` — ~270 événements/mois |
 | **Ville de Rouen** | OpenAgenda API v2 | UID `11174431` — ~15 événements/mois |
 | **Bibliothèques de Rouen** | OpenAgenda API v2 | UID `8049538` — ~130 événements/mois |
-| **JDS (Journal des Spectacles)** | HTML scraping | BeautifulSoup + pagination `?&page=N` |
+| **JDS (Journal des Spectacles)** | HTML scraping | Scrapling + pagination `?&page=N` |
 | **Rouen On Est** | Google Calendar API | 5 calendriers publics (spectacles, culture, sport, dates majeures, grands événements) |
 | **Shotgun** | *Reporté* | Bloqué par Vercel bot protection |
 
@@ -95,7 +95,7 @@ Tous les scrapers récupèrent les événements sur une **fenêtre glissante de 
 
 | Couche | Technologie |
 |--------|-------------|
-| **Scrapers** | Python 3.12+, httpx (async), BeautifulSoup, lxml |
+| **Scrapers** | Python 3.12+, httpx (async), Scrapling |
 | **Classification LLM** | Gemini 2.5 Flash via `google-genai` SDK |
 | **Stockage** | AWS S3 + CloudFront |
 | **Orchestration** | AWS Lambda + EventBridge |
@@ -221,7 +221,7 @@ Le pipeline s'exécute dans une Lambda AWS déclenchée quotidiennement :
 Les 5 scrapers s'exécutent **en parallèle** (async) et collectent les événements des 30 prochains jours :
 
 - **OpenAgenda** (×3) — API JSON v2 avec pagination cursor (`after[]`) et filtre temporel (`timings[gte]`/`timings[lte]`)
-- **JDS** — parsing HTML avec BeautifulSoup, pagination par page, filtrage client-side avec arrêt anticipé
+- **JDS** — parsing HTML avec Scrapling, pagination par page, filtrage client-side avec arrêt anticipé
 - **RouenOnEst** — Google Calendar API avec `timeMin`/`timeMax`
 
 ### 2. Classification + Déduplication
