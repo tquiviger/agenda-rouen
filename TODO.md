@@ -22,3 +22,6 @@
 
 - [ ] Configurer le déploiement IaC (CDK, Terraform, ou SAM) pour Lambda + EventBridge + S3 + CloudFront
 - [ ] Ajouter un domaine custom sur CloudFront
+
+
+claude --resume 56113bdd-42f0-446f-8646-03db0aa10fa2
